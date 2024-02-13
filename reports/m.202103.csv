@@ -1,0 +1,4 @@
+item_name,is_expense,quantity,unit_price
+Глютен,TRUE,500,52
+Ароматизатор,TRUE,12,16000
+Продажа сосисок,FALSE,1000,249
