@@ -1,7 +1,7 @@
 import sqlite3
 
 
-db_path = "C:\\Users\\stein\\PycharmProjects\\techTasks\\filmorate\\app\\repository\\filmorate.db"
+db_path = "C:\\Users\\stein\\PycharmProjects\\techTasks\\filmorate\\filmorate.db"
 
 
 class FilmRepository:
@@ -36,3 +36,21 @@ class FilmRepository:
         connection.close()
         return films
 
+    @staticmethod
+    def get_created_films():
+        connection = sqlite3.connect(db_path, check_same_thread=False)
+        db = connection.cursor()
+        db.execute(""" SELECT id FROM film """)
+        film_ids = db.fetchall()
+        connection.close()
+        return film_ids
+
+    @staticmethod
+    def set_rate(params):
+        connection = sqlite3.connect(db_path, check_same_thread=False)
+        db = connection.cursor()
+        db.execute(""" INSERT INTO
+                rate (film_id, rate)
+                VALUES (?, ?) """, params)
+        connection.commit()
+        connection.close()

@@ -1,5 +1,2 @@
-from filmorate.app.service.Errors import InsertionError
-
-i = input()
-if i == '1':
-    assert InsertionError('g', 400)
+a = {1: 2, 3: 4}
+1=2, 3=4

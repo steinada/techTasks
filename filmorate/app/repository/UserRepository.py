@@ -1,7 +1,7 @@
 import sqlite3
 
 
-db_path = "C:\\Users\\stein\\PycharmProjects\\techTasks\\filmorate\\app\\repository\\filmorate.db"
+db_path = "C:\\Users\\stein\\PycharmProjects\\techTasks\\filmorate\\filmorate.db"
 
 
 class UserRepository:
@@ -35,3 +35,13 @@ class UserRepository:
         users = db.fetchall()
         connection.close()
         return users
+
+    @staticmethod
+    def get_created_users():
+        connection = sqlite3.connect(db_path, check_same_thread=False)
+        db = connection.cursor()
+        db.execute(""" SELECT id FROM user """)
+        user_ids = db.fetchall()
+        connection.close()
+        return user_ids
+

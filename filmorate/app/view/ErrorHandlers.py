@@ -1,4 +1,5 @@
 from flask import Blueprint
+from filmorate.app.service.Errors import InsertionError
 
 
 blueprint = Blueprint('error_handlers', __name__)
@@ -6,5 +7,6 @@ blueprint = Blueprint('error_handlers', __name__)
 
 @blueprint.app_errorhandler(Exception)
 def handle404(e):
-    return '404 handled'
+    if isinstance(e, InsertionError):
+        return {"error": e.message}, e.status_code
 
