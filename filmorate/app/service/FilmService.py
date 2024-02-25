@@ -2,6 +2,8 @@ from datetime import datetime
 from filmorate.app.repository.FilmRepository import FilmRepository
 from filmorate.app.service.Errors import InsertionError
 from filmorate.app.service.UserService import UserService
+from filmorate.app.service.GenreService import GenreService
+from filmorate.app.service.MpaService import MpaService
 from filmorate.model.Film import Film
 import logging
 
@@ -9,6 +11,8 @@ import logging
 class FilmService:
     def __init__(self):
         self.film_repository = FilmRepository()
+        self.genre_service = GenreService()
+        self.mpa_service = MpaService()
 
     @staticmethod
     def user_validator(func):
@@ -45,11 +49,13 @@ class FilmService:
         return wrapper
 
     @staticmethod
-    def make_film_json(params_list):
+    def make_film_json(params_list, genres, mpa):
         keys = ('id', 'name', 'description', 'releaseDate', 'duration')
         films = [dict(zip(keys, film)) for film in params_list]
         for film in films:
             film['releaseDate'] = str(datetime.fromisoformat(film['releaseDate']).date())
+            film['genres'] = genres.get(film['id'], [])
+            film['mpa'] = mpa.get(film['id'], None)
         return films
 
     @user_validator
@@ -73,7 +79,10 @@ class FilmService:
 
     def get_films(self):
         films = self.film_repository.get_films()
-        films_list = FilmService.make_film_json(films)
+        films_ids = list(map(lambda x: x[0], films))
+        genres = self.genre_service.get_genres_of_films(films_ids)
+        mpa = self.mpa_service.get_mpa_of_films(films_ids)
+        films_list = FilmService.make_film_json(films, genres, mpa)
         return films_list
 
     @UserService.id_validator
@@ -88,11 +97,17 @@ class FilmService:
 
     def get_popular_films(self, count):
         popular_films = self.film_repository.get_popular_films(count)
-        popular_films_list = FilmService.make_film_json(popular_films)
+        films_ids = list(map(lambda x: x[0], popular_films))
+        genres = self.genre_service.get_genres_of_films(films_ids)
+        mpa = self.mpa_service.get_mpa_of_films(films_ids)
+        popular_films_list = FilmService.make_film_json(popular_films, genres, mpa)
         return popular_films_list
 
     @id_validator
     def get_film_by_id(self, film):
         film = self.film_repository.get_film_by_id(film.id)
-        film = FilmService.make_film_json(film)
+        film_id = film[0][0]
+        genres = self.genre_service.get_genres_of_films(film_id)
+        mpa = self.mpa_service.get_mpa_of_films(film_id)
+        film = FilmService.make_film_json(film, genres, mpa)
         return film[0]

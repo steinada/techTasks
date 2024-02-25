@@ -3,10 +3,14 @@ from filmorate.model.Film import Film
 from filmorate.model.User import User
 from filmorate.app.service.FilmService import FilmService
 from filmorate.model.FilmControllerModel import FilmControllerModel
+from filmorate.app.service.GenreService import GenreService
+from filmorate.app.service.MpaService import MpaService
 
 
 blueprint = Blueprint('films', __name__)
 film_service = FilmService()
+genre_service = GenreService()
+mpa_service = MpaService()
 
 
 @blueprint.post('')
@@ -15,6 +19,10 @@ def add_film():
     film = Film(**params)
     id = film_service.add_film(film)
     film.id = id
+    if film.genres is not None:
+        genre_service.set_genre_to_film(film)
+    if film.mpa is not None:
+        mpa_service.set_mpa_to_film(film)
     film_controller = FilmControllerModel(**vars(film))
     return vars(film_controller)
 
@@ -24,6 +32,10 @@ def update_film():
     params = request.json
     film = Film(**params)
     film_service.update_film(film)
+    if film.genres is not None:
+        genre_service.set_genre_to_film(film)
+    if film.mpa is not None:
+        mpa_service.set_mpa_to_film(film)
     film_controller = FilmControllerModel(**vars(film))
     return vars(film_controller)
 

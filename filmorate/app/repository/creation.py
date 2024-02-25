@@ -9,6 +9,11 @@ db.execute(""" DROP TABLE film """)
 db.execute(""" DROP TABLE rate """)
 db.execute(""" DROP TABLE like """)
 db.execute(""" DROP TABLE friend """)
+db.execute(""" DROP TABLE genre """)
+db.execute(""" DROP TABLE mpa """)
+db.execute(""" DROP TABLE film_genre """)
+db.execute(""" DROP TABLE film_mpa """)
+
 
 db.execute(""" CREATE TABLE IF NOT EXISTS user (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,6 +60,34 @@ db.execute(""" CREATE TABLE IF NOT EXISTS like (
                                 FOREIGN KEY (film_id) REFERENCES film(id),
                                 FOREIGN KEY (user_id) REFERENCES user(id))
                                 """)
+db.execute(""" CREATE TABLE IF NOT EXISTS genre (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                name VARCHAR)
+                                """)
+db.execute(""" CREATE TABLE IF NOT EXISTS mpa (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                name VARCHAR)
+                                """)
+
+db.execute(""" CREATE TABLE IF NOT EXISTS film_genre (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                genre_id INTEGER,
+                                film_id INTEGER,
+                                FOREIGN KEY (film_id) REFERENCES film(id))
+                                """)
+db.execute(""" CREATE TABLE IF NOT EXISTS film_mpa (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                mpa_id INTEGER,
+                                film_id INTEGER,
+                                FOREIGN KEY (film_id) REFERENCES film(id))
+                                """)
+
+db.execute(""" INSERT INTO genre (name)
+            VALUES ('Комедия'), ('Драма'), ('Мультфильм'), ('Триллер'), ('Документальный'), ('Боевик') """)
+
+db.execute(""" INSERT INTO mpa (name)
+            VALUES ('G'), ('PG'), ('PG-13'), ('R'), ('NC-17') """)
+
 
 connection.commit()
 connection.close()
