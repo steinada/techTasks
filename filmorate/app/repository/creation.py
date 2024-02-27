@@ -38,19 +38,14 @@ db.execute(""" CREATE TABLE IF NOT EXISTS rate (
                                 FOREIGN KEY (film_id) REFERENCES film(id))
                                 """)
 
-db.execute(""" CREATE TABLE IF NOT EXISTS rate (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                rate INTEGER,
-                                film_id INTEGER,
-                                FOREIGN KEY (film_id) REFERENCES film(id))
-                                """)
-
 db.execute(""" CREATE TABLE IF NOT EXISTS friend (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 user_one INTEGER,
                                 user_two INTEGER,
+                                status INTEGER,
                                 FOREIGN KEY (user_one) REFERENCES user(id),
-                                FOREIGN KEY (user_two) REFERENCES user(id))
+                                FOREIGN KEY (user_two) REFERENCES user(id),
+                                UNIQUE(user_one,user_two))
                                 """)
 
 db.execute(""" CREATE TABLE IF NOT EXISTS like (

@@ -11,5 +11,6 @@ class Film:
         self.release_date = releaseDate
         self.duration = duration
         self.rate = rate
-        self.mpa = Mpa(**mpa)
-        self.genres = list(set(map(lambda x: Genre(**x), genres)))
+        self.mpa = Mpa(**mpa) if mpa is not None else None
+        self.genres = sorted(list(set(map(lambda x: Genre(**x), genres))), key=lambda y: y.id)\
+            if genres is not None else None

@@ -46,8 +46,9 @@ class UserRepository:
         connection = sqlite3.connect(db_path, check_same_thread=False)
         db = connection.cursor()
         db.execute(""" INSERT INTO friend
-                    (user_one, user_two)
-                     VALUES (?, ?) """, (user_one, user_two))
+                        (user_one, user_two, status)
+                        VALUES (?, ?, 1)
+                        ON CONFLICT DO UPDATE SET status = 2 """, (user_one, user_two))
         connection.commit()
         connection.close()
 
@@ -69,7 +70,7 @@ class UserRepository:
                     ELSE user_one
                     END ids
                     FROM friend, user u
-                    WHERE (user_one = {id} OR user_two = {id}) AND u.id = ids """.format(id=id))
+                    WHERE (user_one = {id} OR user_two = {id} AND status = 2) AND u.id = ids """.format(id=id))
         friends = db.fetchall()
         connection.close()
         return friends

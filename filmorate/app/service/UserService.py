@@ -73,6 +73,7 @@ class UserService:
 
     @id_validator
     def add_friend(self, user_one, user_two):
+        user_one_id, user_two_id = sorted((user_one.id, user_two.id))
         self.user_repository.add_friend(user_one.id, user_two.id)
 
     @id_validator

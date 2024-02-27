@@ -7,5 +7,5 @@ class FilmControllerModel:
         self.releaseDate = release_date
         self.duration = duration
         self.rate = rate
-        self.mpa = vars(mpa)
-        self.genres = list(map(lambda x: vars(x), genres))
+        self.mpa = vars(mpa) if mpa is not None else None
+        self.genres = list(map(lambda x: vars(x), genres)) if genres is not None else []
