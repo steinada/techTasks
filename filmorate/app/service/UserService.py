@@ -1,6 +1,7 @@
 from datetime import datetime
 from filmorate.app.repository.UserRepository import UserRepository
 from filmorate.model.User import User
+from filmorate.model.FriendshipStatus import FriendshipStatus
 from filmorate.app.service.Errors import InsertionError
 import logging
 
@@ -74,7 +75,11 @@ class UserService:
     @id_validator
     def add_friend(self, user_one, user_two):
         user_one_id, user_two_id = sorted((user_one.id, user_two.id))
-        self.user_repository.add_friend(user_one.id, user_two.id)
+        if user_one_id == user_one.id:
+            status = FriendshipStatus.FRIEND_ONE.value
+        else:
+            status = FriendshipStatus.FRIEND_TWO.value
+        self.user_repository.add_friend(user_one_id, user_two_id, status)
 
     @id_validator
     def delete_friend(self, user_one, user_two):
@@ -88,9 +93,7 @@ class UserService:
 
     @id_validator
     def get_common_friends(self, user_one, user_two):
-        user_one_friends = self.user_repository.get_friends_of_user(user_one.id)
-        user_two_friends = self.user_repository.get_friends_of_user(user_two.id)
-        common_friends = set(user_one_friends) & set(user_two_friends)
+        common_friends = self.user_repository.get_common_friends(user_one.id, user_two.id)
         common_friends_list = UserService.make_user_json(common_friends)
         return common_friends_list
 
