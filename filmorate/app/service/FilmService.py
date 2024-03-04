@@ -111,3 +111,8 @@ class FilmService:
         mpa = self.mpa_service.get_mpa_of_films(film_id)
         film = FilmService.make_film_json(film, genres, mpa)
         return film[0]
+
+    def get_films_by_params(self, query, sort_by):
+        ...
+
+

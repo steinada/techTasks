@@ -13,6 +13,8 @@ db.execute(""" DROP TABLE genre """)
 db.execute(""" DROP TABLE mpa """)
 db.execute(""" DROP TABLE film_genre """)
 db.execute(""" DROP TABLE film_mpa """)
+db.execute(""" DROP TABLE director """)
+db.execute(""" DROP TABLE film_director """)
 
 
 db.execute(""" CREATE TABLE IF NOT EXISTS user (
@@ -63,18 +65,32 @@ db.execute(""" CREATE TABLE IF NOT EXISTS mpa (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 name VARCHAR)
                                 """)
+db.execute(""" CREATE TABLE IF NOT EXISTS director (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                name VARCHAR)
+                                """)
+
+db.execute(""" CREATE TABLE IF NOT EXISTS film_director (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                director_id INTEGER,
+                                film_id INTEGER,
+                                FOREIGN KEY (film_id) REFERENCES film(id),
+                                FOREIGN KEY (director_id) REFERENCES director(id))
+                                """)
 
 db.execute(""" CREATE TABLE IF NOT EXISTS film_genre (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 genre_id INTEGER,
                                 film_id INTEGER,
-                                FOREIGN KEY (film_id) REFERENCES film(id))
+                                FOREIGN KEY (film_id) REFERENCES film(id),
+                                FOREIGN KEY (genre_id) REFERENCES genre(id))
                                 """)
 db.execute(""" CREATE TABLE IF NOT EXISTS film_mpa (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 mpa_id INTEGER,
                                 film_id INTEGER,
-                                FOREIGN KEY (film_id) REFERENCES film(id))
+                                FOREIGN KEY (film_id) REFERENCES film(id),
+                                FOREIGN KEY (mpa_id) REFERENCES mpa(id))
                                 """)
 
 db.execute(""" INSERT INTO genre (name)

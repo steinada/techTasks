@@ -87,4 +87,26 @@ class FilmRepository:
         connection.close()
         return film
 
-
+    def get_films_by_params(self, query, sort_by):
+        connection = sqlite3.connect(db_path, check_same_thread=False)
+        db = connection.cursor()
+        sorting, where, sort_dict = '', '', {'director': 'd.name', 'title': 'f.name'}
+        for param in sort_by:
+            sorting += f", {sort_dict[param]}"
+        if query:
+            where += f"WHERE f.name LIKE '%{query}%'"
+        db.execute(""" SELECT f.*, COUNT(DISTINCT(l.id)) AS likes
+                            FROM film f
+                            LEFT JOIN film_director fd ON fd.film_id = f.id
+                            LEFT JOIN director d ON d.id = fd.director_id
+                            LEFT JOIN film_genre fg ON fg.film_id = f.id
+                            LEFT JOIN genre g ON g.id = fg.genre_id
+                            LEFT JOIN film_mpa fm ON fm.film_id = f.id
+                            LEFT JOIN mpa m ON m.id = fm.mpa_id
+                            LEFT JOIN like l ON l.film_id = f.id
+                            {where}
+                            GROUP BY f.id, fd.id, fg.id
+                            ORDER BY likes DESC {sorting} """.format(sorting=sorting, where=where))
+        films = db.fetchall()
+        connection.close()
+        return films
