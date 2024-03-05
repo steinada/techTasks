@@ -1,3 +1,5 @@
+from filmorate.model.FilmControllerModel import FilmControllerModel
+from datetime import datetime
 import sqlite3
 
 
@@ -33,7 +35,7 @@ for param in sort_by:
     sorting += f", {sort_dict[param]}"
 if query:
     query_where += f"WHERE f.name LIKE '%{query}%'"
-db.execute(""" SELECT f.*, COUNT(DISTINCT(l.id)) AS likes
+db.execute(""" SELECT f.*, m.*, g.*, d.*, COUNT(DISTINCT(l.id)) AS likes
                     FROM film f
                     LEFT JOIN film_director fd ON fd.film_id = f.id
                     LEFT JOIN director d ON d.id = fd.director_id
@@ -49,8 +51,25 @@ db.execute(""" SELECT f.*, COUNT(DISTINCT(l.id)) AS likes
 a = db.fetchall()
 connection.commit()
 connection.close()
-print(*a, sep='\n')
-#
+params_list = a
+keys = ('id', 'name', 'description', 'release_date', 'duration', 'mpa_id', 'mpa_name', 'genre_id', 'genre_name',
+        'director_id', 'director_name')
+films_dict = [dict(zip(keys, film)) for film in params_list]
+films_obj_dict = dict()
+for film in films_dict:
+    if film['id'] not in films_obj_dict:
+        film_obj = FilmControllerModel(id=film['id'], name=film['name'], description=film['description'],
+                        release_date=film['release_date'], duration=film['duration'])
+        film_obj.release_date = str(datetime.fromisoformat(film_obj.releaseDate).date())
+        film_obj.genres = [{'id': film['genre_id'], 'name': film['genre_name']}]
+        film_obj.mpa = {'id': film['mpa_id'], 'name': film['mpa_name']}
+        film_obj.director = [{'id': film['director_id'], 'name': film['director_name']}]
+        films_obj_dict.update({film['id']: film_obj})
+    else:
+        films_obj_dict[film['id']].director.append({'id': film['director_id'], 'name': film['director_name']})
+        films_obj_dict[film['id']].genres.append({'id': film['genre_id'], 'name': film['genre_name']})
+films_json = list(map(lambda x: vars(x[1]), films_obj_dict.items()))
+print(films_json)
 # user_one, user_two = 2, 1
 # user_one, user_two = sorted(user_one, user_two)
 # print(user_one, user_two)

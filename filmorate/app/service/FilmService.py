@@ -5,6 +5,7 @@ from filmorate.app.service.UserService import UserService
 from filmorate.app.service.GenreService import GenreService
 from filmorate.app.service.MpaService import MpaService
 from filmorate.model.Film import Film
+from filmorate.model.FilmControllerModel import FilmControllerModel
 import logging
 
 
@@ -49,14 +50,30 @@ class FilmService:
         return wrapper
 
     @staticmethod
-    def make_film_json(params_list, genres, mpa):
-        keys = ('id', 'name', 'description', 'releaseDate', 'duration')
-        films = [dict(zip(keys, film)) for film in params_list]
-        for film in films:
-            film['releaseDate'] = str(datetime.fromisoformat(film['releaseDate']).date())
-            film['genres'] = genres.get(film['id'], [])
-            film['mpa'] = mpa.get(film['id'], None)
-        return films
+    def make_film_json(params_list):
+        keys = ('id', 'name', 'description', 'release_date', 'duration', 'mpa_id', 'mpa_name', 'genre_id', 'genre_name',
+                'director_id', 'director_name')
+        films_dict = [dict(zip(keys, film)) for film in params_list]
+        films_obj_dict = dict()
+        for film in films_dict:
+            if film['id'] not in films_obj_dict:
+                film_obj = FilmControllerModel(id=film['id'], name=film['name'], description=film['description'],
+                release_date=film['release_date'], duration=film['duration'])
+                film_obj.releaseDate = str(datetime.fromisoformat(film_obj.releaseDate).date())
+                film_obj.genres = [{'id': film['genre_id'], 'name': film['genre_name']}]\
+                    if film['genre_id'] is not None else []
+                film_obj.mpa = {'id': film['mpa_id'], 'name': film['mpa_name']}\
+                    if film['mpa_id'] is not None else None
+                film_obj.director = [{'id': film['director_id'], 'name': film['director_name']}]\
+                    if film['director_id'] is not None else []
+                films_obj_dict.update({film['id']: film_obj})
+            else:
+                if film['director_id']:
+                    films_obj_dict[film['id']].director.append({'id': film['director_id'], 'name': film['director_name']})
+                if film['genre_id']:
+                    films_obj_dict[film['id']].genres.append({'id': film['genre_id'], 'name': film['genre_name']})
+        films_json = list(map(lambda x: vars(x[1]), films_obj_dict.items()))
+        return films_json
 
     @user_validator
     def add_film(self, film):
@@ -79,10 +96,7 @@ class FilmService:
 
     def get_films(self):
         films = self.film_repository.get_films()
-        films_ids = list(map(lambda x: x[0], films))
-        genres = self.genre_service.get_genres_of_films(films_ids)
-        mpa = self.mpa_service.get_mpa_of_films(films_ids)
-        films_list = FilmService.make_film_json(films, genres, mpa)
+        films_list = FilmService.make_film_json(films)
         return films_list
 
     @UserService.id_validator
@@ -97,22 +111,18 @@ class FilmService:
 
     def get_popular_films(self, count):
         popular_films = self.film_repository.get_popular_films(count)
-        films_ids = list(map(lambda x: x[0], popular_films))
-        genres = self.genre_service.get_genres_of_films(films_ids)
-        mpa = self.mpa_service.get_mpa_of_films(films_ids)
-        popular_films_list = FilmService.make_film_json(popular_films, genres, mpa)
+        popular_films_list = FilmService.make_film_json(popular_films)
         return popular_films_list
 
     @id_validator
     def get_film_by_id(self, film):
         film = self.film_repository.get_film_by_id(film.id)
-        film_id = film[0][0]
-        genres = self.genre_service.get_genres_of_films(film_id)
-        mpa = self.mpa_service.get_mpa_of_films(film_id)
-        film = FilmService.make_film_json(film, genres, mpa)
+        film = FilmService.make_film_json(film)
         return film[0]
 
     def get_films_by_params(self, query, sort_by):
-        ...
+        films = self.film_repository.get_films_by_params(query, sort_by)
+        films_json = self.make_film_json(films)
+        return films_json
 
 

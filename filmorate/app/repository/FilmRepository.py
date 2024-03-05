@@ -28,7 +28,15 @@ class FilmRepository:
     def get_films(self):
         connection = sqlite3.connect(db_path, check_same_thread=False)
         db = connection.cursor()
-        db.execute(""" SELECT * FROM film """)
+        db.execute(""" SELECT f.*, m.*, g.*, d.*
+                            FROM film f
+                            LEFT JOIN film_director fd ON fd.film_id = f.id
+                            LEFT JOIN director d ON d.id = fd.director_id
+                            LEFT JOIN film_genre fg ON fg.film_id = f.id
+                            LEFT JOIN genre g ON g.id = fg.genre_id
+                            LEFT JOIN film_mpa fm ON fm.film_id = f.id
+                            LEFT JOIN mpa m ON m.id = fm.mpa_id
+                            GROUP BY f.id, fd.id, fg.id """)
         films = db.fetchall()
         connection.close()
         return films
@@ -70,11 +78,18 @@ class FilmRepository:
     def get_popular_films(self, count):
         connection = sqlite3.connect(db_path, check_same_thread=False)
         db = connection.cursor()
-        db.execute(""" SELECT * FROM film f
-                        LEFT JOIN like l ON f.id = l.film_id
-                        GROUP BY f.id
-                        ORDER BY COUNT(l.user_id) DESC
-                        LIMIT {count} """.format(count=count))
+        db.execute(""" SELECT f.*, m.*, g.*, d.*, COUNT(DISTINCT(l.id)) AS likes
+                            FROM film f
+                            LEFT JOIN film_director fd ON fd.film_id = f.id
+                            LEFT JOIN director d ON d.id = fd.director_id
+                            LEFT JOIN film_genre fg ON fg.film_id = f.id
+                            LEFT JOIN genre g ON g.id = fg.genre_id
+                            LEFT JOIN film_mpa fm ON fm.film_id = f.id
+                            LEFT JOIN mpa m ON m.id = fm.mpa_id
+                            LEFT JOIN like l ON l.film_id = f.id
+                            GROUP BY f.id, fd.id, fg.id
+                            ORDER BY likes DESC
+                            LIMIT {count}""".format(count=count))
         popular_films = db.fetchall()
         connection.close()
         return popular_films
@@ -82,7 +97,16 @@ class FilmRepository:
     def get_film_by_id(self, id):
         connection = sqlite3.connect(db_path, check_same_thread=False)
         db = connection.cursor()
-        db.execute(""" SELECT * FROM film WHERE id = {id} """.format(id=id))
+        db.execute(""" SELECT f.*, m.*, g.*, d.*
+                            FROM film f
+                            LEFT JOIN film_director fd ON fd.film_id = f.id
+                            LEFT JOIN director d ON d.id = fd.director_id
+                            LEFT JOIN film_genre fg ON fg.film_id = f.id
+                            LEFT JOIN genre g ON g.id = fg.genre_id
+                            LEFT JOIN film_mpa fm ON fm.film_id = f.id
+                            LEFT JOIN mpa m ON m.id = fm.mpa_id
+                            WHERE f.id = {id}
+                            GROUP BY f.id, fd.id, fg.id """.format(id=id))
         film = db.fetchall()
         connection.close()
         return film
@@ -95,7 +119,7 @@ class FilmRepository:
             sorting += f", {sort_dict[param]}"
         if query:
             where += f"WHERE f.name LIKE '%{query}%'"
-        db.execute(""" SELECT f.*, COUNT(DISTINCT(l.id)) AS likes
+        db.execute(""" SELECT f.*, m.*, g.*, d.*, COUNT(DISTINCT(l.id)) AS likes
                             FROM film f
                             LEFT JOIN film_director fd ON fd.film_id = f.id
                             LEFT JOIN director d ON d.id = fd.director_id

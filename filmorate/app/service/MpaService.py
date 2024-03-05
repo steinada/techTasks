@@ -25,6 +25,7 @@ class MpaService:
 
     def set_mpa_to_film(self, film):
         mpa_id, film_id = film.mpa.id, film.id
+        self.mpa_repository.delete_film_mpas(film_id)
         params_to_set = (mpa_id, film_id)
         self.mpa_repository.set_film_mpa(params_to_set)
 

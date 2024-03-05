@@ -48,3 +48,10 @@ class MpaRepository:
         connection.close()
         return films_mpa
 
+    def delete_film_mpas(self, film_id):
+        connection = sqlite3.connect(db_path, check_same_thread=False)
+        db = connection.cursor()
+        db.execute(""" DELETE FROM film_mpa WHERE film_id = ? """, (film_id, ))
+        connection.commit()
+        connection.close()
+
