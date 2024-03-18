@@ -2,13 +2,18 @@ from datetime import datetime
 from filmorate.app.repository.FilmRepository import FilmRepository
 from filmorate.app.service.Errors import InsertionError
 from filmorate.app.service.UserService import UserService
+from filmorate.app.service.GenreService import GenreService
+from filmorate.app.service.MpaService import MpaService
 from filmorate.model.Film import Film
+from filmorate.model.FilmControllerModel import FilmControllerModel
 import logging
 
 
 class FilmService:
     def __init__(self):
         self.film_repository = FilmRepository()
+        self.genre_service = GenreService()
+        self.mpa_service = MpaService()
 
     @staticmethod
     def user_validator(func):
@@ -46,11 +51,29 @@ class FilmService:
 
     @staticmethod
     def make_film_json(params_list):
-        keys = ('id', 'name', 'description', 'releaseDate', 'duration')
-        films = [dict(zip(keys, film)) for film in params_list]
-        for film in films:
-            film['releaseDate'] = str(datetime.fromisoformat(film['releaseDate']).date())
-        return films
+        keys = ('id', 'name', 'description', 'release_date', 'duration', 'mpa_id', 'mpa_name', 'genre_id', 'genre_name',
+                'director_id', 'director_name')
+        films_dict = [dict(zip(keys, film)) for film in params_list]
+        films_obj_dict = dict()
+        for film in films_dict:
+            if film['id'] not in films_obj_dict:
+                film_obj = FilmControllerModel(id=film['id'], name=film['name'], description=film['description'],
+                release_date=film['release_date'], duration=film['duration'])
+                film_obj.releaseDate = str(datetime.fromisoformat(film_obj.releaseDate).date())
+                film_obj.genres = [{'id': film['genre_id'], 'name': film['genre_name']}]\
+                    if film['genre_id'] is not None else []
+                film_obj.mpa = {'id': film['mpa_id'], 'name': film['mpa_name']}\
+                    if film['mpa_id'] is not None else None
+                film_obj.director = [{'id': film['director_id'], 'name': film['director_name']}]\
+                    if film['director_id'] is not None else []
+                films_obj_dict.update({film['id']: film_obj})
+            else:
+                if film['director_id']:
+                    films_obj_dict[film['id']].director.append({'id': film['director_id'], 'name': film['director_name']})
+                if film['genre_id']:
+                    films_obj_dict[film['id']].genres.append({'id': film['genre_id'], 'name': film['genre_name']})
+        films_json = list(map(lambda x: vars(x[1]), films_obj_dict.items()))
+        return films_json
 
     @user_validator
     def add_film(self, film):
@@ -96,3 +119,10 @@ class FilmService:
         film = self.film_repository.get_film_by_id(film.id)
         film = FilmService.make_film_json(film)
         return film[0]
+
+    def get_films_by_params(self, query, sort_by):
+        films = self.film_repository.get_films_by_params(query, sort_by)
+        films_json = self.make_film_json(films)
+        return films_json
+
+
