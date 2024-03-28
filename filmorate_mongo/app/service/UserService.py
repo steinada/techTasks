@@ -32,7 +32,7 @@ class UserService:
         def wrapper(self, *objs):
             user_objs = filter(lambda x: isinstance(x, User), objs)
             created_users = UserRepository.get_created_users()
-            created_users_list = list(map(lambda x: x[0], created_users))
+            created_users_list = list(map(lambda x: x['id'], created_users))
             for obj in user_objs:
                 if obj.id < 0:
                     logging.error(f"User {obj.id} is incorrect")
@@ -43,43 +43,31 @@ class UserService:
             return func(self, *objs)
         return wrapper
 
-    @staticmethod
-    def make_user_json(users):
-        keys = ('id', 'email', 'login', 'name', 'birthday')
-        users_list = [dict(zip(keys, user)) for user in users]
-        for user in users_list:
-            user['birthday'] = str(datetime.fromisoformat(user['birthday']).date())
-        return users_list
-
     @user_validator
     def create_user(self, user):
-        birthday_date = datetime.fromisoformat(user.birthday)
-        params = (user.email, user.login, user.name, birthday_date)
-        id = self.user_repository.add_user(params)
-        logging.info(f"User created: id={id}, {str(vars(user))}")
-        return id
+        params = vars(user)
+        params['id'] = self.user_repository.id_generator()
+        object_id = str(self.user_repository.add_user(params))
+        logging.info(f"User created: object_id={object_id}, {str(params)}")
+        del params['_id']
+        return params
 
     @id_validator
     @user_validator
     def update_user(self, user):
-        birthday_date = datetime.fromisoformat(user.birthday)
-        params = (user.email, user.login, user.name, birthday_date, user.id)
-        self.user_repository.update_user(params)
+        params = vars(user)
+        user_updated = self.user_repository.update_user(params, user.id)
         logging.info(f"User updated: {str(vars(user))}")
 
     def get_users(self):
         users = self.user_repository.get_users()
-        users_list = UserService.make_user_json(users)
+        users_list = list(map(lambda x: x, users))
         return users_list
 
     @id_validator
     def add_friend(self, user_one, user_two):
-        user_one_id, user_two_id = sorted((user_one.id, user_two.id))
-        if user_one_id == user_one.id:
-            status = FriendshipStatus.FRIEND_ONE.value
-        else:
-            status = FriendshipStatus.FRIEND_TWO.value
-        self.user_repository.add_friend(user_one_id, user_two_id, status)
+        user_one_id, user_two_id = user_one.id, user_two.id
+        self.user_repository.add_friend(user_one_id, user_two_id)
 
     @id_validator
     def delete_friend(self, user_one, user_two):
@@ -88,17 +76,22 @@ class UserService:
     @id_validator
     def get_friends_of_user(self, user):
         friends_list = self.user_repository.get_friends_of_user(user.id)
-        users_list = UserService.make_user_json(friends_list)
+        users_list = list(map(lambda x: x['friends_info'][0], friends_list))
         return users_list
 
     @id_validator
     def get_common_friends(self, user_one, user_two):
-        common_friends = self.user_repository.get_common_friends(user_one.id, user_two.id)
-        common_friends_list = UserService.make_user_json(common_friends)
-        return common_friends_list
+        friends = self.user_repository.get_common_friends(user_one.id, user_two.id)
+        friends_dict, users_list, common_friends = dict(), list(), list()
+        for friend in friends:
+            friends_dict[(friend['_id'], friend['friends_info'][0]['id'])] = friend['friends_info'][0]
+        for user in friends_dict:
+            if user[1] in users_list:
+                common_friends.append(friends_dict[user])
+            users_list.append(user[1])
+        return common_friends
 
     @id_validator
     def get_user_by_id(self, user):
-        user_req = self.user_repository.get_user_by_id(user.id)
-        user_json = UserService.make_user_json(user_req)
-        return user_json[0]
+        user = self.user_repository.get_user_by_id(user.id)
+        return user

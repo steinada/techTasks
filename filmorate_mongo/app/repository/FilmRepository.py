@@ -1,136 +1,272 @@
-import sqlite3
+from filmorate_mongo.app.repository import current_db
+
+import pymongo
+import re
 
 
-db_path = "C:\\Users\\stein\\PycharmProjects\\techTasks\\filmorate_mongo\\filmorate.db"
+film_collection = current_db["film"]
+id_collection = current_db["id_generator"]
 
 
 class FilmRepository:
-    def add_film(self, params):
-        connection = sqlite3.connect(db_path, check_same_thread=False)
-        db = connection.cursor()
-        db.execute(""" INSERT INTO
-                film (name, description, release_date, duration)
-                VALUES (?, ?, ?, ?) """, params)
-        id = db.lastrowid
-        connection.commit()
-        connection.close()
-        return id
+    def id_generator(self):
+        id = id_collection.find_one_and_update(
+            {"collection": "film"},
+            {"$inc": {"id": 1}},
+            projection={"id": 1, "_id": 0},
+            return_document=pymongo.ReturnDocument.AFTER)
+        return id['id']
 
-    def update_film(self, params):
-        connection = sqlite3.connect(db_path, check_same_thread=False)
-        db = connection.cursor()
-        db.execute(""" UPDATE film
-                SET name = ?, description = ?, release_date = ?, duration = ?
-                WHERE id = ?""", params)
-        connection.commit()
-        connection.close()
+    def add_film(self, params):
+        film = film_collection.insert_one(params)
+        object_id = film.inserted_id
+        return object_id
+
+    def update_film(self, params, id):
+        film_update = film_collection.find_one_and_update(filter={'id': id}, update={'$set': params},
+            return_document=pymongo.ReturnDocument.AFTER, projection={'likes_count': 0, 'likes': 0})
+        return film_update
 
     def get_films(self):
-        connection = sqlite3.connect(db_path, check_same_thread=False)
-        db = connection.cursor()
-        db.execute(""" SELECT f.*, m.*, g.*, d.*
-                            FROM film f
-                            LEFT JOIN film_director fd ON fd.film_id = f.id
-                            LEFT JOIN director d ON d.id = fd.director_id
-                            LEFT JOIN film_genre fg ON fg.film_id = f.id
-                            LEFT JOIN genre g ON g.id = fg.genre_id
-                            LEFT JOIN film_mpa fm ON fm.film_id = f.id
-                            LEFT JOIN mpa m ON m.id = fm.mpa_id
-                            GROUP BY f.id, fd.id, fg.id """)
-        films = db.fetchall()
-        connection.close()
+        pipeline = [
+            {
+                "$unwind": {"path": "$genres",
+                            "preserveNullAndEmptyArrays": True}
+            },
+            {
+                "$unwind": {"path": "$director",
+                            "preserveNullAndEmptyArrays": True}
+            },
+            {
+                "$lookup": {
+                    "from": "genre",
+                    "localField": "genres",
+                    "foreignField": "id",
+                    "as": "genre_info"
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "director",
+                    "localField": "director",
+                    "foreignField": "id",
+                    "as": "director_info"
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "mpa",
+                    "localField": "mpa",
+                    "foreignField": "id",
+                    "as": "mpa_info"
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "mpa": 0,
+                    "genres": 0,
+                    "director": 0,
+                    "genre_info._id": 0,
+                    "mpa_info._id": 0,
+                    "director_info._id": 0,
+                    "likes_count": 0
+
+                }
+            }
+        ]
+        films = film_collection.aggregate(pipeline)
         return films
 
     def get_created_films(self):
-        connection = sqlite3.connect(db_path, check_same_thread=False)
-        db = connection.cursor()
-        db.execute(""" SELECT id FROM film """)
-        film_ids = db.fetchall()
-        connection.close()
+        film_ids = film_collection.find(projection={'id': 1, '_id': 0})
         return film_ids
 
-    def set_rate(self, params):
-        connection = sqlite3.connect(db_path, check_same_thread=False)
-        db = connection.cursor()
-        db.execute(""" INSERT INTO
-                rate (film_id, rate)
-                VALUES (?, ?) """, params)
-        connection.commit()
-        connection.close()
-
     def set_like(self, film_id, user_id):
-        connection = sqlite3.connect(db_path, check_same_thread=False)
-        db = connection.cursor()
-        db.execute(""" INSERT INTO
-                        like (user_id, film_id)
-                        VALUES (?, ?) """, (user_id, film_id))
-        connection.commit()
-        connection.close()
+        film_collection.update_one(filter={'id': film_id}, update={'$push': {"likes": user_id},
+                                                                   '$inc': {'likes_count': 1}})
 
     def delete_like(self, film_id, user_id):
-        connection = sqlite3.connect(db_path, check_same_thread=False)
-        db = connection.cursor()
-        db.execute(""" DELETE FROM like 
-                        WHERE user_id = ? AND film_id = ? """, (user_id, film_id))
-        connection.commit()
-        connection.close()
+        film_collection.update_one(filter={'id': film_id}, update={'$unset': {"likes": user_id},
+                                                                   '$dec': {'likes_count': 1}})
 
     def get_popular_films(self, count):
-        connection = sqlite3.connect(db_path, check_same_thread=False)
-        db = connection.cursor()
-        db.execute(""" SELECT f.*, m.*, g.*, d.*, COUNT(DISTINCT(l.id)) AS likes
-                            FROM film f
-                            LEFT JOIN film_director fd ON fd.film_id = f.id
-                            LEFT JOIN director d ON d.id = fd.director_id
-                            LEFT JOIN film_genre fg ON fg.film_id = f.id
-                            LEFT JOIN genre g ON g.id = fg.genre_id
-                            LEFT JOIN film_mpa fm ON fm.film_id = f.id
-                            LEFT JOIN mpa m ON m.id = fm.mpa_id
-                            LEFT JOIN like l ON l.film_id = f.id
-                            GROUP BY f.id, fd.id, fg.id
-                            ORDER BY likes DESC
-                            LIMIT {count}""".format(count=count))
-        popular_films = db.fetchall()
-        connection.close()
-        return popular_films
+        pipeline = [
+            {
+                "$unwind": {"path": "$genres",
+                            "preserveNullAndEmptyArrays": True}
+            },
+            {
+                "$unwind": {"path": "$director",
+                            "preserveNullAndEmptyArrays": True}
+            },
+            {
+                "$lookup": {
+                    "from": "genre",
+                    "localField": "genres",
+                    "foreignField": "id",
+                    "as": "genre_info"
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "director",
+                    "localField": "director",
+                    "foreignField": "id",
+                    "as": "director_info"
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "mpa",
+                    "localField": "mpa",
+                    "foreignField": "id",
+                    "as": "mpa_info"
+                }
+            },
+            {
+                '$group': {
+                    "_id": "$_id",
+                    'allFields': {'$push': "$$ROOT"}
+                }
+            },
+            {
+                '$sort': {
+                    'allFields.likes_count': -1
+                }
+            },
+            {
+                '$limit': count
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "mpa": 0,
+                    "genres": 0,
+                    "director": 0
+                }
+            }
+        ]
+        films = film_collection.aggregate(pipeline)
+        return films
 
     def get_film_by_id(self, id):
-        connection = sqlite3.connect(db_path, check_same_thread=False)
-        db = connection.cursor()
-        db.execute(""" SELECT f.*, m.*, g.*, d.*
-                            FROM film f
-                            LEFT JOIN film_director fd ON fd.film_id = f.id
-                            LEFT JOIN director d ON d.id = fd.director_id
-                            LEFT JOIN film_genre fg ON fg.film_id = f.id
-                            LEFT JOIN genre g ON g.id = fg.genre_id
-                            LEFT JOIN film_mpa fm ON fm.film_id = f.id
-                            LEFT JOIN mpa m ON m.id = fm.mpa_id
-                            WHERE f.id = {id}
-                            GROUP BY f.id, fd.id, fg.id """.format(id=id))
-        film = db.fetchall()
-        connection.close()
+        pipeline = [
+            {
+                "$unwind": {"path": "$genres",
+                            "preserveNullAndEmptyArrays": True}
+            },
+            {
+                "$unwind": {"path": "$director",
+                            "preserveNullAndEmptyArrays": True}
+            },
+            {
+                "$match": {
+                    "id": id
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "genre",
+                    "localField": "genres",
+                    "foreignField": "id",
+                    "as": "genre_info"
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "director",
+                    "localField": "director",
+                    "foreignField": "id",
+                    "as": "director_info"
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "mpa",
+                    "localField": "mpa",
+                    "foreignField": "id",
+                    "as": "mpa_info"
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0,
+                    "mpa": 0,
+                    "genres": 0,
+                    "director": 0,
+                    "genre_info._id": 0,
+                    "mpa_info._id": 0,
+                    "director_info._id": 0,
+                    "likes_count": 0
+                }
+            }
+        ]
+        film = film_collection.aggregate(pipeline)
         return film
 
     def get_films_by_params(self, query, sort_by):
-        connection = sqlite3.connect(db_path, check_same_thread=False)
-        db = connection.cursor()
-        sorting, where, sort_dict = '', '', {'director': 'd.name', 'title': 'f.name'}
+        sorting = {'allFields.likes_count': -1}
+        sort_dict = {'director': {'allFields.director_info.name': -1}, 'title': {'allFields.name': 1}}
         for param in sort_by:
-            sorting += f", {sort_dict[param]}"
-        if query:
-            where += f"WHERE f.name LIKE '%{query}%'"
-        db.execute(""" SELECT f.*, m.*, g.*, d.*, COUNT(DISTINCT(l.id)) AS likes
-                            FROM film f
-                            LEFT JOIN film_director fd ON fd.film_id = f.id
-                            LEFT JOIN director d ON d.id = fd.director_id
-                            LEFT JOIN film_genre fg ON fg.film_id = f.id
-                            LEFT JOIN genre g ON g.id = fg.genre_id
-                            LEFT JOIN film_mpa fm ON fm.film_id = f.id
-                            LEFT JOIN mpa m ON m.id = fm.mpa_id
-                            LEFT JOIN like l ON l.film_id = f.id
-                            {where}
-                            GROUP BY f.id, fd.id, fg.id
-                            ORDER BY likes DESC {sorting} """.format(sorting=sorting, where=where))
-        films = db.fetchall()
-        connection.close()
+            sorting.update(sort_dict[param])
+        title_query = {'$match': {'allFields.name': {'$regex': re.compile(fr"{query}")}}}
+        pipeline = [
+            {
+                "$unwind": {"path": "$genres",
+                            "preserveNullAndEmptyArrays": True}
+            },
+            {
+                "$unwind": {"path": "$director",
+                            "preserveNullAndEmptyArrays": True}
+            },
+            {
+                "$lookup": {
+                    "from": "genre",
+                    "localField": "genres",
+                    "foreignField": "id",
+                    "as": "genre_info"
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "director",
+                    "localField": "director",
+                    "foreignField": "id",
+                    "as": "director_info"
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "mpa",
+                    "localField": "mpa",
+                    "foreignField": "id",
+                    "as": "mpa_info"
+                }
+            },
+            {
+                '$group': {
+                    "_id": "$_id",
+                    'allFields': {'$push': "$$ROOT"}
+                }
+            },
+            {
+                '$sort': sorting
+            },
+            title_query,
+
+            {
+                "$project": {
+                    "_id": 0,
+                    "mpa": 0,
+                    "genres": 0,
+                    "director": 0,
+                    "genre_info._id": 0,
+                    "mpa_info._id": 0,
+                    "director_info._id": 0,
+                    "likes_count": 0
+                }
+            }
+        ]
+        films = film_collection.aggregate(pipeline)
         return films

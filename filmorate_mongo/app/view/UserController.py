@@ -11,9 +11,8 @@ user_service = UserService()
 def create_user():
     params = request.json
     user = User(**params)
-    id = user_service.create_user(user)
-    user.id = id
-    return vars(user)
+    user_params = user_service.create_user(user)
+    return user_params
 
 
 @blueprint.put('')

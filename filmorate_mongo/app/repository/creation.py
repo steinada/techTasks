@@ -1,104 +1,56 @@
-import sqlite3
+from filmorate_mongo.app.repository import current_db
 
 
-connection = sqlite3.connect("C:\\Users\\stein\\PycharmProjects\\techTasks\\filmorate_mongo\\filmorate.db")
-db = connection.cursor()
+# объявляем коллекции
 
-db.execute(""" DROP TABLE user """)
-db.execute(""" DROP TABLE film """)
-db.execute(""" DROP TABLE rate """)
-db.execute(""" DROP TABLE like """)
-db.execute(""" DROP TABLE friend """)
-db.execute(""" DROP TABLE genre """)
-db.execute(""" DROP TABLE mpa """)
-db.execute(""" DROP TABLE film_genre """)
-db.execute(""" DROP TABLE film_mpa """)
-db.execute(""" DROP TABLE director """)
-db.execute(""" DROP TABLE film_director """)
+genre_collection = current_db["genre"]
+mpa_collection = current_db["mpa"]
+user_collection = current_db["user"]
+film_collection = current_db["film"]
+friend_collection = current_db["friend"]
+like_collection = current_db["like"]
+rate_collection = current_db["rate"]
+director_collection = current_db["director"]
+id_collection = current_db["id_generator"]
 
 
-db.execute(""" CREATE TABLE IF NOT EXISTS user (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                email VARCHAR,
-                                login VARCHAR,
-                                name VARCHAR,
-                                birthday DATE
-                                ) """)
+#удаляем информацию коллекций, если та была ранее
 
-db.execute(""" CREATE TABLE IF NOT EXISTS film (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                name VARCHAR,
-                                description VARCHAR,
-                                release_date DATE,
-                                duration INTEGER
-                                ) """)
-
-db.execute(""" CREATE TABLE IF NOT EXISTS rate (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                rate INTEGER,
-                                film_id INTEGER,
-                                FOREIGN KEY (film_id) REFERENCES film(id))
-                                """)
-
-db.execute(""" CREATE TABLE IF NOT EXISTS friend (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                user_one INTEGER,
-                                user_two INTEGER,
-                                status INTEGER,
-                                FOREIGN KEY (user_one) REFERENCES user(id),
-                                FOREIGN KEY (user_two) REFERENCES user(id),
-                                UNIQUE(user_one,user_two))
-                                """)
-
-db.execute(""" CREATE TABLE IF NOT EXISTS like (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                user_id INTEGER,
-                                film_id INTEGER,
-                                FOREIGN KEY (film_id) REFERENCES film(id),
-                                FOREIGN KEY (user_id) REFERENCES user(id))
-                                """)
-db.execute(""" CREATE TABLE IF NOT EXISTS genre (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                name VARCHAR)
-                                """)
-db.execute(""" CREATE TABLE IF NOT EXISTS mpa (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                name VARCHAR)
-                                """)
-db.execute(""" CREATE TABLE IF NOT EXISTS director (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                name VARCHAR)
-                                """)
-
-db.execute(""" CREATE TABLE IF NOT EXISTS film_director (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                director_id INTEGER,
-                                film_id INTEGER,
-                                FOREIGN KEY (film_id) REFERENCES film(id),
-                                FOREIGN KEY (director_id) REFERENCES director(id))
-                                """)
-
-db.execute(""" CREATE TABLE IF NOT EXISTS film_genre (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                genre_id INTEGER,
-                                film_id INTEGER,
-                                FOREIGN KEY (film_id) REFERENCES film(id),
-                                FOREIGN KEY (genre_id) REFERENCES genre(id))
-                                """)
-db.execute(""" CREATE TABLE IF NOT EXISTS film_mpa (
-                                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                mpa_id INTEGER,
-                                film_id INTEGER,
-                                FOREIGN KEY (film_id) REFERENCES film(id),
-                                FOREIGN KEY (mpa_id) REFERENCES mpa(id))
-                                """)
-
-db.execute(""" INSERT INTO genre (name)
-            VALUES ('Комедия'), ('Драма'), ('Мультфильм'), ('Триллер'), ('Документальный'), ('Боевик') """)
-
-db.execute(""" INSERT INTO mpa (name)
-            VALUES ('G'), ('PG'), ('PG-13'), ('R'), ('NC-17') """)
+genre_collection.drop()
+mpa_collection.drop()
+user_collection.drop()
+film_collection.drop()
+friend_collection.drop()
+like_collection.drop()
+rate_collection.drop()
+director_collection.drop()
+id_collection.drop()
 
 
-connection.commit()
-connection.close()
+#выставляем базовые значения, которые будут заполнять соответствующие поля в другой коллекции
+
+genre = [{'id': 1, 'name': 'Комедия'}, {'id': 2, 'name': 'Драма'}, {'id': 3, 'name': 'Мультфильм'},
+         {'id': 4, 'name': 'Триллер'}, {'id': 5, 'name': 'Документальный'}, {'id': 6, 'name': 'Боевик'}]
+genre_collection.insert_many(genre)
+
+mpa = [{'id': 1, 'name': 'G'}, {'id': 2, 'name': 'PG'}, {'id': 3, 'name': 'PG-13'}, {'id': 4, 'name': 'R'},
+       {'id': 5, 'name': 'NC-17'}]
+mpa_collection.insert_many(mpa)
+
+
+#добавление генераторов id
+
+id_collection.insert_one({
+    'collection': 'user',
+    'id': 0
+})
+
+id_collection.insert_one({
+    'collection': 'director',
+    'id': 0
+})
+
+id_collection.insert_one({
+    'collection': 'film',
+    'id': 0
+})

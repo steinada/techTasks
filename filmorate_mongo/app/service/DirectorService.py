@@ -14,31 +14,33 @@ class DirectorService:
     def id_validator(func):
         def wrapper(self, *objs):
             director_objs = filter(lambda x: isinstance(x, Director), objs)
-            created_directors = DirectorRepository.get_all_directors_id()
-            created_directors_list = list(map(lambda x: x[0], created_directors))
+            created_directors = DirectorRepository.get_all_directors()
+            created_directors_list = list(map(lambda x: x['id'], created_directors))
             for obj in director_objs:
-                if obj.id < 0:
-                    logging.error(f"Film {obj.id} is incorrect")
-                    raise InsertionError("director id is incorrect", 404)
                 if obj.id not in created_directors_list:
-                    logging.error(f"Film {obj.id} not found")
+                    logging.error(f"Director {obj.name} not found")
                     raise InsertionError("director not created", 404)
             return func(self, *objs)
         return wrapper
 
     def get_all_directors(self):
-        directors_list = self.directors_repository.get_directors()
-        directors = [Director(id=value[0], name=value[1]) for value in directors_list]
-        return directors
+        directors = self.directors_repository.get_all_directors()
+        directors_list = list(map(lambda x: x, directors))
+        return directors_list
 
     def add_director(self, director):
-        id = self.directors_repository.add_director(director.name)
-        return id
+        id = self.directors_repository.id_generator()
+        director.id = id
+        params = vars(director)
+        object_id = self.directors_repository.add_director(params)
+        logging.info(f"Director created: id={object_id}, {str(params)}")
+        del params['_id']
+        return params
 
     @id_validator
     def update_director(self, director):
-        params = (director.name, director.id)
-        self.directors_repository.update_director(params)
+        director = self.directors_repository.update_director(params=director.name, id=director.id)
+        return director
 
     @id_validator
     def get_director_by_id(self, director):
@@ -51,14 +53,3 @@ class DirectorService:
     def delete_director(self, director):
         self.directors_repository.delete_director_from_films(director.id)
         self.directors_repository.delete_director(director.id)
-
-    @id_validator
-    def set_film_director(self, film):
-        directors, film_id = film.director, film.id
-        self.directors_repository.delete_film_director(film_id)
-        if directors:
-            directors_list = list(map(lambda x: x.id, directors))
-            params_to_set = [(director_id, film_id) for director_id in directors_list]
-            params_string = str(params_to_set).strip("[]")
-            self.directors_repository.set_film_director(params_string)
-

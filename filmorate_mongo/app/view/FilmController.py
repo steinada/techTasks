@@ -19,15 +19,8 @@ director_service = DirectorService()
 def add_film():
     params = request.json
     film = Film(**params)
-    id = film_service.add_film(film)
-    film.id = id
-    if film.genres is not None:
-        genre_service.set_genre_to_film(film)
-    if film.mpa is not None:
-        mpa_service.set_mpa_to_film(film)
-    if film.director is not None:
-        director_service.set_film_director(film)
-    film_controller = FilmControllerModel(**vars(film))
+    film = film_service.add_film(film)
+    film_controller = FilmControllerModel(**film)
     return vars(film_controller)
 
 
@@ -35,14 +28,8 @@ def add_film():
 def update_film():
     params = request.json
     film = Film(**params)
-    film_service.update_film(film)
-    if film.genres is not None:
-        genre_service.set_genre_to_film(film)
-    if film.mpa is not None:
-        mpa_service.set_mpa_to_film(film)
-    if film.director is not None:
-        director_service.set_film_director(film)
-    film_controller = FilmControllerModel(**vars(film))
+    film_updated = film_service.update_film(film)
+    film_controller = FilmControllerModel(**film_updated)
     return vars(film_controller)
 
 

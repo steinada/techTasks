@@ -18,17 +18,16 @@ def get_all_directors():
 def add_director():
     params = request.json
     director = Director(**params)
-    id = director_service.add_director(director)
-    director.id = id
-    return vars(director)
+    director = director_service.add_director(director)
+    return director
 
 
 @blueprint.put('')
 def update_director():
     params = request.json
     director = Director(**params)
-    director_service.update_director(director)
-    return vars(director)
+    director_updated = director_service.update_director(director)
+    return director_updated
 
 
 @blueprint.get('/<string:id>')
