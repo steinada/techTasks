@@ -39,3 +39,10 @@ class UserRepository:
     async def delete_user(self, user: User, session: AsyncSessionLocal):
         await session.delete(user)
         await session.commit()
+
+    async def get_comment_author_name(self, session: AsyncSessionLocal, user_id: int):
+        user_name = await session.execute(select(User.name)
+                                        .where(User.id == user_id))
+        user_name = user_name.scalars().first()
+        return user_name
+

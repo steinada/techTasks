@@ -10,6 +10,8 @@ class ItemDTO(BaseModel):
 
 class ItemDB(ItemDTO):
     id: int
+    lastBooking: Optional[dict] = None
+    nextBooking: Optional[dict] = None
 
     class Config:
         from_attributes = True

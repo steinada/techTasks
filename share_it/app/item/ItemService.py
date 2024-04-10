@@ -2,11 +2,15 @@ from http import HTTPStatus
 from fastapi import HTTPException
 
 from share_it.app.item.ItemRepository import ItemRepository
-from share_it.app.item.ItemDTO import ItemDTO, ItemUpdate
+from share_it.app.item.ItemDTO import ItemDTO, ItemUpdate, ItemDB
 from share_it.app.item.ItemModel import Item
 from share_it.app.item.ItemUserModel import Item_User
+from share_it.app.item.CommentDTO import CommentDTO
+from share_it.app.item.CommentModel import Comment
 from share_it.app.user.UserRepository import UserRepository
 from share_it.app.core.db import AsyncSessionLocal
+
+import datetime
 
 from copy import deepcopy
 
@@ -62,3 +66,45 @@ class ItemService:
             return items
         else:
             return []
+
+    async def get_item_with_bookings_by_id(self, item_id: int, session: AsyncSessionLocal, user_id: int):
+        current_date = datetime.datetime.now()
+        item = await self.item_repository.get_item_with_bookings_by_id(session=session, item_id=item_id,
+                                                                       current_date=current_date)
+        if not item:
+            raise HTTPException(HTTPStatus.NOT_FOUND.value, "Item not found")
+        item_model, last_booking_id, last_booking_booker_id, next_booking_id, next_booking_booker_id, owner_id = item
+        item = ItemDB(**vars(item_model))
+        if owner_id == user_id and (last_booking_id or next_booking_id):
+            item.lastBooking = {'id': last_booking_id, 'bookerId': last_booking_booker_id}
+            item.nextBooking = {'id': next_booking_id, 'bookerId': next_booking_booker_id}
+        return item
+
+    async def get_items_with_bookings_by_user(self, session: AsyncSessionLocal, user_id: int):
+        current_date = datetime.datetime.now()
+        user_exists = await self.user_repository.get_user_by_id(id=user_id, session=session)
+        if not user_exists:
+            raise HTTPException(HTTPStatus.NOT_FOUND.value, "User not found")
+        items = await self.item_repository.get_items_with_bookings_by_id(session=session, user_id=user_id,
+                                                                       current_date=current_date)
+        items_list = list()
+        for item in items:
+            item_model, last_booking_id, last_booking_booker_id, next_booking_id, next_booking_booker_id, owner_id = item
+            item = ItemDB(**vars(item_model))
+            if last_booking_id or next_booking_id:
+                item.lastBooking = {'id': last_booking_id, 'bookerId': last_booking_booker_id}
+                item.nextBooking = {'id': next_booking_id, 'bookerId': next_booking_booker_id}
+            items_list.append(item)
+        return items_list
+
+    async def add_comment_to_item(self, comment: CommentDTO, session: AsyncSessionLocal):
+        item = await self.item_repository.get_item_by_id(session=session, id=comment.item_id)
+        if not item:
+            raise HTTPException(HTTPStatus.NOT_FOUND.value, "Item not found")
+        bookers = await self.item_repository.get_bookers_of_item(session=session, item_id=comment.item_id)
+        comment_params = comment.dict()
+        comment_model = Comment(**comment_params)
+        if comment.user_id not in bookers:
+            raise HTTPException(HTTPStatus.FORBIDDEN.value, "User didn't book this item")
+        comment_db = await self.item_repository.add_comment(session=session, comment=comment_model)
+        author_name = await self.user_repository.get_comment_author_name(session=session, user_id=comment.user_id)
