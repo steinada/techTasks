@@ -1,7 +1,7 @@
 from sqlalchemy import select, and_, update, desc, or_
 from sqlalchemy.orm import aliased
 
-import datetime
+from datetime import datetime
 
 from share_it.app.booking.BookingModel import Booking
 from share_it.app.booking.BookingStatus import BookingStatus
@@ -19,20 +19,17 @@ class BookingRepository:
         return booking
 
     async def get_booking_info(self, booking_id: int, session: AsyncSessionLocal):
-        u, i, b = aliased(User), aliased(Item), aliased(Booking)
-        result = await session.execute(select(u, i, b)
-                                     .join(i, b.item_id == i.id, isouter=True)
-                                     .join(u, b.booker_id == u.id, isouter=True)
-                                     .where(b.id == booking_id))
-        result = result.first()
+        result = await session.execute(select(Booking)
+                                     .where(Booking.id == booking_id))
+        result = result.scalars().first()
         return result
 
     async def check_user_booked_item(self, user_id: int, booking_id: Booking, session: AsyncSessionLocal):
         ui, b = aliased(Item_User), aliased(Booking)
-        result = await session.execute(select(ui.item_id, b.id, b.status)
+        result = await session.execute(select(b)
                                        .join(ui, ui.item_id == b.item_id, isouter=True)
                                        .where(and_(b.id == booking_id, ui.user_id == user_id)))
-        result = result.first()
+        result = result.scalars().first()
         return result
 
     async def change_booking_status(self, session: AsyncSessionLocal, booking_id: int, status: BookingStatus):
@@ -43,24 +40,20 @@ class BookingRepository:
         return booking_update
 
     async def get_booking_by_id(self, session: AsyncSessionLocal, booking_id: int):
-        u, i, b, iu = aliased(User), aliased(Item), aliased(Booking), aliased(Item_User)
-        result = await session.execute(select(u, i, b, iu.user_id)
-                                     .join(i, b.item_id == i.id, isouter=True)
-                                     .join(u, b.booker_id == u.id, isouter=True)
-                                     .join(iu, b.item_id == iu.item_id, isouter=True)
-                                     .where(b.id == booking_id))
-        result = result.first()
+        result = await session.execute(select(Booking)
+                                     .where(Booking.id == booking_id))
+        result = result.scalars().first()
         return result
 
     async def get_bookings(self, session: AsyncSessionLocal, user_id: int, where: str):
         u, i, b, iu = aliased(User), aliased(Item), aliased(Booking), aliased(Item_User)
-        result = await session.execute(select(u, i, b)
+        result = await session.execute(select(b)
                                        .join(i, b.item_id == i.id, isouter=True)
                                        .join(u, b.booker_id == u.id, isouter=True)
                                        .join(iu, b.item_id == iu.item_id, isouter=True)
                                        .where(eval(where))
                                        .order_by(desc(b.start)))
-        result = result.all()
+        result = result.scalars().all()
         return result
 
     async def get_rent_dates(self, session: AsyncSessionLocal, item_id: int, start: datetime, end: datetime):

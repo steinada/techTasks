@@ -49,9 +49,15 @@ class BookingService:
         else:
             where = 'b.booker_id == user_id'
         if state and state != 'ALL':
-            if state == 'FUTURE':
-                date_now = datetime.today()
-                where = f'and_({where}, b.start > datetime.date({date_now.year}, {date_now.month}, {date_now.day}))'
+            date_now = datetime.now()
+            if state == 'CURRENT':
+                where = (f'and_({where},'
+                         f'b.start < datetime({date_now.year}, {date_now.month}, {date_now.day}, {date_now.hour}, {date_now.minute}, {date_now.second}),'
+                         f'b.end > datetime({date_now.year}, {date_now.month}, {date_now.day}, {date_now.hour}, {date_now.minute}, {date_now.second}))')
+            elif state == 'FUTURE':
+                where = f'and_({where}, b.start > datetime({date_now.year}, {date_now.month}, {date_now.day}, {date_now.hour}, {date_now.minute}, {date_now.second}))'
+            elif state == 'PAST':
+                where = f'and_({where}, b.end < datetime({date_now.year}, {date_now.month}, {date_now.day}, {date_now.hour}, {date_now.minute}, {date_now.second}))'
             else:
                 try:
                     where = f'and_({where}, b.status == {BookingStatus[state]})'
@@ -83,18 +89,17 @@ class BookingService:
         booking_model = Booking(**params, booker_id=booker_id)
         booking = await self.booking_repository.book_item(booking=booking_model, session=session)
         booking_info = await self.booking_repository.get_booking_info(session=session, booking_id=booking.id)
-        booking = list(filter(lambda x: isinstance(x, Booking), booking_info))
-        user = list(filter(lambda x: isinstance(x, User), booking_info))
-        item = list(filter(lambda x: isinstance(x, Item), booking_info))
-        booking_model = await self.make_booking_model([{'user': user[0], 'item': item[0], 'booking': booking[0]}])
+        user = booking_info.booker
+        item = booking_info.item
+        booking_model = await self.make_booking_model([{'user': user, 'item': item, 'booking': booking_info}])
         return booking_model[0]
 
     async def change_booking_status(self, user_id: int, booking_id: int, approved: bool, session: AsyncSessionLocal):
-        check_user = await self.booking_repository.check_user_booked_item(user_id=user_id, booking_id=booking_id,
+        booking_check_user = await self.booking_repository.check_user_booked_item(user_id=user_id, booking_id=booking_id,
                                                                     session=session)
-        if not check_user:
+        if not booking_check_user:
             raise HTTPException(HTTPStatus.NOT_FOUND.value, "Incorrect user")
-        current_booking_status = list(filter(lambda x: isinstance(x, BookingStatus), check_user))[0]
+        current_booking_status = booking_check_user.status
         if approved:
             status = BookingStatus.APPROVED
             if current_booking_status.value == status.value:
@@ -104,23 +109,20 @@ class BookingService:
         booking_update = await self.booking_repository.change_booking_status(session=session, booking_id=booking_id,
                                                                              status=status)
         booking_info = await self.booking_repository.get_booking_info(session=session, booking_id=booking_id)
-        booking = list(filter(lambda x: isinstance(x, Booking), booking_info))
-        user = list(filter(lambda x: isinstance(x, User), booking_info))
-        item = list(filter(lambda x: isinstance(x, Item), booking_info))
-        booking_model = await self.make_booking_model([{'user': user[0], 'item': item[0], 'booking': booking[0]}])
+        user = booking_info.booker
+        item = booking_info.item
+        booking_model = await self.make_booking_model([{'user': user, 'item': item, 'booking': booking_info}])
         return booking_model[0]
 
     async def get_booking_by_id(self, booking_id: int, session: AsyncSessionLocal, user_id: int):
         booking_info = await self.booking_repository.get_booking_by_id(session=session, booking_id=booking_id)
         if not booking_info:
             raise HTTPException(HTTPStatus.NOT_FOUND.value, "Booking not found")
-        booking = list(filter(lambda x: isinstance(x, Booking), booking_info))[0]
-        user = list(filter(lambda x: isinstance(x, User), booking_info))[0]
-        item = list(filter(lambda x: isinstance(x, Item), booking_info))[0]
-        items_user = list(filter(lambda x: isinstance(x, int), booking_info))[0]
-        if user_id != items_user and booking.booker_id != user_id:
+        user = booking_info.booker
+        item = booking_info.item
+        if user_id != item.item_owner[0].id and booking_info.booker_id != user_id:
             raise HTTPException(HTTPStatus.NOT_FOUND.value, "Incorrect user")
-        booking_model = await self.make_booking_model([{'user': user, 'item': item, 'booking': booking}])
+        booking_model = await self.make_booking_model([{'user': user, 'item': item, 'booking': booking_info}])
         return booking_model[0]
 
     async def get_bookings(self, user_id: int, state: str | None, session: AsyncSessionLocal, owner=False):
@@ -130,9 +132,8 @@ class BookingService:
             raise HTTPException(HTTPStatus.NOT_FOUND.value, "Incorrect user")
         bookings_list = list()
         for booking_info in bookings:
-            booking = list(filter(lambda x: isinstance(x, Booking), booking_info))[0]
-            user = list(filter(lambda x: isinstance(x, User), booking_info))[0]
-            item = list(filter(lambda x: isinstance(x, Item), booking_info))[0]
-            bookings_list.append({'user': user, 'item': item, 'booking': booking})
+            user = booking_info.booker
+            item = booking_info.item
+            bookings_list.append({'user': user, 'item': item, 'booking': booking_info})
         booking_models = await self.make_booking_model(bookings_list)
         return booking_models
