@@ -4,7 +4,7 @@ from typing import Annotated
 
 from share_it.app.item.ItemDTO import ItemDTO, ItemUpdate, ItemDB
 from share_it.app.item.ItemService import ItemService
-from share_it.app.item.CommentDTO import CommentDTO
+from share_it.app.item.CommentDTO import CommentDTO, CommentDB
 from share_it.app.core.db import AsyncSessionLocal, get_async_session
 
 router = APIRouter(prefix="/items", tags=["Items"])
@@ -31,7 +31,7 @@ async def update_item(x_sharer_user_id: Annotated[int | None, Header()], itemId:
     return updated_item
 
 
-@router.post("/{itemId}/comment", response_model=list[ItemDB])
+@router.post("/{itemId}/comment", response_model=CommentDB)
 async def add_comment_to_item(x_sharer_user_id: Annotated[int | None, Header()], itemId: int, comment: CommentDTO,
                             session: AsyncSessionLocal = Depends(get_async_session)):
     comment.item_id, comment.user_id = itemId, x_sharer_user_id

@@ -12,7 +12,7 @@ class CommentDTO(BaseModel):
 
 class CommentDB(CommentDTO):
     id: int
-    authorName: Optional[str]
+    authorName: Optional[str] = None
 
     class Config:
         from_attributes = True

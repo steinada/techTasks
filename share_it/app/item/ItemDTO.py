@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Any
 from pydantic import BaseModel, Field
 
 
@@ -10,8 +10,9 @@ class ItemDTO(BaseModel):
 
 class ItemDB(ItemDTO):
     id: int
-    lastBooking: Optional[dict] = None
-    nextBooking: Optional[dict] = None
+    lastBooking: Any = None
+    nextBooking: Any = None
+    comments: Optional[list] = []
 
     class Config:
         from_attributes = True
